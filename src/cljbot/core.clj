@@ -122,7 +122,7 @@
     (pp/with-pprint-dispatch
       (fn [obj]
         (when-let [m (meta obj)]
-          (print "#^")
+          (print "^")
           (orig-dispatch m)
           (print " "))
         (orig-dispatch obj))

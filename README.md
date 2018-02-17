@@ -14,16 +14,18 @@ ClojureでGUI操作を自動化する。裏方として`java.awt.Robot`を使う
 ## ビルド
 
 ```shell-session
+$ git clone https://github.com/gpsoft/cljbot.git
+$ cd cljbot
 $ boot build
 ```
 
 ## 実行
 
 ```shell-session
-$ java -jar target/cljbot-xxxxx-standalone.jar run3
+$ java -jar target/cljbot-xxxxx-standalone.jar script/run3
 ```
 
-↑スクリプト`run3.edn`を実行。
+↑スクリプト`script/run3.edn`を実行。
 
 ## 操作一覧
 
@@ -74,7 +76,7 @@ ednで書く。
 マウス座標を学習。
 ```
 [
- #^{:caption "The start button"} [:click-left-on :?]
+ ^{:caption "The start button"} [:click-left-on :?]
  [:pause 1000]
  [:type-key :esc]
  ]
@@ -83,15 +85,17 @@ ednで書く。
 実行すると……。
 
 ```shell-session
-$ java -jar target/cljbot-xxxxx-standalone.jar run3
+$ java -jar target/cljbot-xxxxx-standalone.jar script/run3
 Please move mouse for The start button...
 ```
 
 学習後のスクリプトをファイルに保存してくれる。
 
+ちなみにednは、メタデータを正式にはサポートしてないっぽい。でもまぁ、Clojureで扱うなら問題無さそう。
+
 ### run3-learned.edn
 ```
-[#^{:caption "The start button"} [:click-left-on 1661 332]
+[^{:caption "The start button"} [:click-left-on 1661 332]
  [:pause 1000]
  [:type-key :esc]]
 ```
