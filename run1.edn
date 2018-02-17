@@ -1,0 +1,8 @@
+[[:loop 2
+  [
+   #^{:caption "A Button"} [:click-left-on :?]
+   [:nop :click-left-on 10 20]
+   [:type-string "a"]
+   ]
+  ]
+ ]

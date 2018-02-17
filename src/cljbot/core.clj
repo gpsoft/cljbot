@@ -1,4 +1,5 @@
 (ns cljbot.core
+  (:require [clojure.pprint :as pp])
   (:import [java.awt Robot MouseInfo PointerInfo]
            [java.awt.event InputEvent KeyEvent]
            [javax.swing KeyStroke])
@@ -24,12 +25,15 @@
   (let [pt (.getLocation (MouseInfo/getPointerInfo))]
     [(.-x pt) (.-y pt)]))
 (defn wait-and-locate
-  ([] (wait-and-locate 5000))
-  ([ms]
-   (print "Move mouse...")
-   (flush)
-   (pause ms)
-   (prn (location))))
+  ([caption] (wait-and-locate caption 5))
+  ([caption s]
+   (print (str "Please move mouse for " caption "...")) (flush)
+   (dotimes [n s]
+     (print (- s n)) (flush)
+     (pause 1000))
+   (let [pos (location)]
+     (println pos)
+     pos)))
 
 ;; ks is a vector of keys
 ;; consists of zero or more modifier keys and one actual key
@@ -66,6 +70,54 @@
 (defn type-string [s]
   (let [kss (string->kss s)]
     (type-keys kss)))
+(defn ppm [obj]
+        (let [orig-dispatch pp/*print-pprint-dispatch*]
+          (pp/with-pprint-dispatch 
+            (fn [o]
+              (when (meta o)
+                (print "^")
+                (orig-dispatch (meta o))
+                (pp/pprint-newline :fill))
+              (orig-dispatch o))
+            (pp/pprint obj))))
+(declare loop-operations)
+(def opecode-map
+  {:pause #'pause
+   :click-left-on #'click-left-on
+   :type-string #'type-string
+   })
+
+(defn load-script [fpath]
+  (clojure.edn/read-string (slurp fpath)))
+(defn store-script [fpath ops]
+  (spit
+    fpath
+    (binding [*print-meta* true]
+      (with-out-str (ppm ops))
+      #_(pr-str ops))))
+(defn learn-location [caption]
+  (wait-and-locate caption))
+(defn play-operation [op]
+  (let [[opecode & args] op]
+    (case opecode
+      :nop op
+      :loop (apply loop-operations args)
+      (let [m (meta op)
+            operands (if (some #{:?} args)
+                       (learn-location (:caption m))
+                       args)]
+        (apply (opecode opecode-map) operands)
+        (with-meta (vec (concat [opecode] operands)) m)))))
+(defn play-operations [ops]
+  (vec (doall (map play-operation ops))))
+(defn loop-operations [n ops]
+  (if-not (pos? n)
+    [:loop n ops]
+    (let [first-run (play-operations ops)]
+      (when (= first-run ops)
+        (doall (for [i (range (dec n))]
+                 (play-operations first-run))))
+      [:loop n first-run])))
 
 (comment
   (doseq [i (range 3)]
@@ -74,9 +126,22 @@
     (type-string "Chrome")
     (type-key :enter)
     (pause 2000))
+  (-> (load-script "run1.edn")
+      (play-operations))
   )
 
+(defn show-usage []
+  (println "Usage: cljbot SCRIPT")
+  (println "   ex: cljbot run1"))
+
 (defn -main
-  "I don't do a whole lot ... yet."
   [& args]
-  (wait-and-locate))
+  (let [[script] args]
+    (when (nil? script)
+      (show-usage)
+      (System/exit -1)
+      )
+    (let [ops (load-script (str script ".edn"))
+          res (play-operations ops)]
+      (when-not (= ops res)
+        (store-script (str script "-learned.edn") res)))))
