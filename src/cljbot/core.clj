@@ -109,11 +109,12 @@
 
 (defn type-string
   "文字列をタイプする。"
-  [s]
-  (let [kss (string->kss s)]
+  [& ss]
+  (let [kss (string->kss (apply str ss))]
     (type-keys kss)))
 
 ;;; スクリプト操作
+(def ^:dynamic *loop-i* nil)
 (defn- pprint-with-meta
   "メタ情報とともにpretty printする。"
   [object]
@@ -127,6 +128,10 @@
         (orig-dispatch obj))
       (pp/pprint object))))
 
+(defn- type-string-with-i [& ss]
+  (->> (map #(if (= % :i) *loop-i* %) ss)
+       (apply type-string)))
+
 (def opecode-map
   {:pause #'pause
    :click-left-on #'click-left-on
@@ -134,7 +139,7 @@
    :click-right-on #'click-right-on
    :move-to #'move-to
    :type-key #'type-key
-   :type-string #'type-string})
+   :type-string #'type-string-with-i})
 
 (defn- load-script [fpath]
   (clojure.edn/read-string (slurp fpath)))
@@ -167,10 +172,10 @@
 
     ;; 1周実行して、learnした場合は、そこで終了。
     ;; learn不要だった場合は、残りの周回を実施。
-    (let [first-run (play-operations ops)]
+    (let [first-run (binding [*loop-i* 0] (play-operations ops))]
       (when (= first-run ops)
-        (doall (for [i (range (dec n))]
-                 (play-operations first-run))))
+        (doall (for [i (range 1 n)]
+                 (binding [*loop-i* i] (play-operations first-run)))))
       [:loop n first-run])))
 
 (comment

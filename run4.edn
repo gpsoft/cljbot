@@ -1,7 +1,7 @@
 [
  [:loop 2
   [
-   [:type-string "Hey"]
+   [:type-string "Hey" :i "Yo"]
    [:type-key :enter]
    ]
   ]
