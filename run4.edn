@@ -1,0 +1,8 @@
+[
+ [:loop 2
+  [
+   [:type-string "Hey"]
+   [:type-key :enter]
+   ]
+  ]
+ ]

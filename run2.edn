@@ -1,0 +1,6 @@
+[
+ [:click-left-on 10 20]
+ [:nop "Wait for a sec."]
+ [:pause 1000]
+ [:type-key :esc]
+ ]

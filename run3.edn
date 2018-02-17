@@ -1,0 +1,5 @@
+[
+ #^{:caption "The start button"} [:click-left-on :?]
+ [:pause 1000]
+ [:type-key :esc]
+ ]

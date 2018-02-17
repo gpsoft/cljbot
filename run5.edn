@@ -1,0 +1,11 @@
+[
+ [:loop 3
+  [
+   #^{:caption "Whisker menu button"} [:click-right-on :?]
+   [:pause 300]
+   #^{:caption "About item"} [:click-left-on :?]
+   [:pause 2000]
+   [:type-key :enter]
+   ]
+  ]
+ ]
