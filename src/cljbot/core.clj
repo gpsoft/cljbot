@@ -56,46 +56,97 @@
   ;; ex: [KeyEvent/VK_A]
   ;;     [KeyEvent/VK_SHIFT KeyEvent/VK_B]
   ;;     [KeyEvent/VK_SHIFT KeyEvent/VK_ALT KeyEvent/VK_C]
+  ;; また特別に、:enterや:escのようなキーワード表現も許す。
+  ;; その場合、↓このマップで正規形に変換する。
   {:enter [KeyEvent/VK_ENTER]
    :esc [KeyEvent/VK_ESCAPE]
    :bs [KeyEvent/VK_BACK_SPACE]
    :colon [KeyEvent/VK_COLON]
+   :asterisk [KeyEvent/VK_SHIFT KeyEvent/VK_COLON]
+   :ampersand [KeyEvent/VK_SHIFT KeyEvent/VK_6]
    :comma [KeyEvent/VK_COMMA]
    :space [KeyEvent/VK_SPACE]
-   :tab [KeyEvent/VK_TAB]})
+   :tab [KeyEvent/VK_TAB]
+   :at [KeyEvent/VK_AT]
+   :back-quote [KeyEvent/VK_SHIFT KeyEvent/VK_AT]
+   :plus [KeyEvent/VK_SHIFT KeyEvent/VK_SEMICOLON]
+   :back-slash [KeyEvent/VK_BACK_SLASH]
+   :bracketleft [KeyEvent/VK_BRACELEFT]
+   :braceleft [KeyEvent/VK_SHIFT KeyEvent/VK_BRACELEFT]
+   :bracketright [KeyEvent/VK_BRACERIGHT]
+   :braceright [KeyEvent/VK_SHIFT KeyEvent/VK_BRACERIGHT]
+   :exclamation-mark [KeyEvent/VK_SHIFT KeyEvent/VK_1]
+   })
+(def spchar-map
+  {\* :asterisk
+   \+ :plus
+   \& :ampersand
+   \@ :at
+   \` :back-quote
+   \\ :back-slash
+   \[ :bracketleft
+   \] :bracketright
+   \{ :braceleft
+   \} :braceright
+   \space :space
+   \: :colon
+   \, :comma
+   \! :exclamation-mark
+   })
 
-(defn- ->keycode [c]
+(defn- s->keycode [s]
   (load-string
-    (str "java.awt.event.KeyEvent/VK_" (Character/toUpperCase c))))
+    (str "java.awt.event.KeyEvent/VK_" s)))
+(defn- c->keycode [c]
+  (s->keycode (Character/toUpperCase c)))
+;(def ^:private upper-snake
+;  (comp #(clojure.string/replace % "-" "_")
+;        #(.toUpperCase %)))
+;(defn- kw->keycode [kw]
+;  (s->keycode (upper-snake (name kw))))
+
+(defn- normalize-ks
+  "ksの正規化。キーワード形式のksをベクタへ。"
+  [ks]
+  (get-in ks-map [ks] ks))
+(defn- type-key*
+  "あるksのタイプ(押して離す)をエミュレートするプリミティブ。"
+  [ks]
+  (let [ks (normalize-ks ks)]
+    (doseq [k ks]
+      (.keyPress robot k))
+    (doseq [k (reverse ks)]
+      (.keyRelease robot k))))
+
+(defn- letter->ks [c]
+  (let [mods (if (Character/isUpperCase c) [KeyEvent/VK_SHIFT] [])
+        k (c->keycode c)]
+    (conj mods k)))
+(defn- digit->ks [c]
+  [(c->keycode c)])
+(defn- spchar->ks [c]
+  (spchar-map c))
 
 (defn- char->ks
   "文字をksへ。
-  サポートする文字種は限定的。
+  サポートする文字種には制限あり。
   "
   [c]
-  (when
-    (not (or (Character/isLetter c) (Character/isDigit c)))
-    (throw (ex-info (str "Unsupported character: " c) {:key c})))
-  (let [mods (if (Character/isUpperCase c) [KeyEvent/VK_SHIFT] [])
-        k (->keycode c)]
-    (conj mods k)))
+  (let [ks (cond
+             (Character/isLetter c) (letter->ks c)
+             (Character/isDigit c) (digit->ks c)
+             (spchar-map c) (spchar->ks c)
+             :else nil)]
+    (when-not ks
+      (throw (ex-info (str "Unsupported character: " c) {:key c})))
+    ks))
 
 (defn- string->kss
   "文字列をksのシーケンスへ。"
   [s]
   (map char->ks s))
 
-(defn- type-key*
-  "あるksのタイプ(押して離す)をエミュレートする。
-  ksではなく、:enterや:escなども指定可能。"
-  [ks-or-key]
-  (let [ks (get-in ks-map [ks-or-key] ks-or-key)]
-    (doseq [k ks]
-      (.keyPress robot k))
-    (doseq [k (reverse ks)]
-      (.keyRelease robot k))))
-
-(defn- type-keys
+(defn- type-kss
   "複数のksを連続してタイプ(押して離す)する。"
   [kss]
   (doseq [ks kss]
@@ -111,7 +162,7 @@
   "文字列をタイプする。"
   [& ss]
   (let [kss (string->kss (apply str ss))]
-    (type-keys kss)))
+    (type-kss kss)))
 
 ;;; スクリプト操作
 (def ^:dynamic *loop-i* nil)
