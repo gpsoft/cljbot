@@ -70,6 +70,19 @@
    :braceleft [KeyEvent/VK_SHIFT KeyEvent/VK_BRACELEFT]
    :braceright [KeyEvent/VK_SHIFT KeyEvent/VK_BRACERIGHT]
    :exclamation-mark [KeyEvent/VK_SHIFT KeyEvent/VK_1]
+   :quotedbl [KeyEvent/VK_SHIFT KeyEvent/VK_2]
+   :number_sign [KeyEvent/VK_SHIFT KeyEvent/VK_3]
+   :dollar [KeyEvent/VK_SHIFT KeyEvent/VK_4]
+   :percent [KeyEvent/VK_SHIFT KeyEvent/VK_5]
+   :quote [KeyEvent/VK_SHIFT KeyEvent/VK_7]
+   :parenleft [KeyEvent/VK_SHIFT KeyEvent/VK_8]
+   :parenright [KeyEvent/VK_SHIFT KeyEvent/VK_9]
+   :equals [KeyEvent/VK_SHIFT KeyEvent/VK_MINUS]
+   :tilde [KeyEvent/VK_SHIFT KeyEvent/VK_CIRCUMFLEX]
+   :underscore [KeyEvent/VK_SHIFT KeyEvent/VK_BACK_SLASH]
+   :question-mark [KeyEvent/VK_SHIFT KeyEvent/VK_SLASH]
+   :angleleft [KeyEvent/VK_SHIFT KeyEvent/VK_COMMA]
+   :angleright [KeyEvent/VK_SHIFT KeyEvent/VK_PERIOD]
    })
 (def spchar-map
   {\* :asterisk
@@ -78,14 +91,31 @@
    \@ :at
    \` :back-quote
    \\ :back-slash
-   \[ :bracketleft
-   \] :bracketright
+   \[ :open-bracket
+   \] :close-bracket
    \{ :braceleft
    \} :braceright
    \space :space
    \: :colon
    \, :comma
+   \. :period
    \! :exclamation-mark
+   \" :quotedbl
+   \# :number_sign
+   \$ :dollar
+   \% :percent
+   \' :quote
+   \( :parenleft
+   \) :parenright
+   \= :equals
+   \~ :tilde
+   \- :minus
+   \^ :circumflex
+   \_ :underscore
+   \? :question-mark
+   \/ :slash
+   \< :angleleft
+   \> :angleright
    })
 
 (defn- s->keycode [s]
@@ -112,10 +142,11 @@
 
 (defn- kw->kc
   [kw]
-  (if-let [kc (kc-map kw)]
-    kc
-    (when-let [keycode (kw->keycode kw)]
-      [keycode])))
+  (when kw
+    (if-let [kc (kc-map kw)]
+      kc
+      (when-let [keycode (kw->keycode kw)]
+        [keycode]))))
 (defn- letter->kc [c]
   (let [mods (if (Character/isUpperCase c) [KeyEvent/VK_SHIFT] [])
         k (c->keycode c)]
@@ -123,7 +154,7 @@
 (defn- digit->kc [c]
   [(c->keycode c)])
 (def ^:private spchar->kc
-  (comp kw->kc spchar-map))
+  (comp kw->kc #'spchar-map))
 
 (defn- char->kc
   "文字をkcへ。
