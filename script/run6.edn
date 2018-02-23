@@ -1,9 +1,10 @@
 [
+ [:pause 3000]
  [:loop 2
   [
    [:type-string "AAA" :i "AAA"]
    [:type-key :space]
-   [:loop 2
+   [:loop 3
     [
      [:type-string "BBB" :i "BBB"]
      [:type-key :space]

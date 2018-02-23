@@ -11,6 +11,8 @@ ClojureでGUI操作を自動化する。裏方として`java.awt.Robot`を使う
 - 上記を組み合わせたスクリプトを再生
 - マウスの座標を学習するモード
 
+※OSのキーボードレイアウト設定が「日本語キーボード」になってない場合、記号キーの一部(例えば`@`とか)は、たぶん、まともに動かない(`2`が押下される?)。
+
 ## ビルド
 
 ```shell-session
@@ -27,6 +29,8 @@ $ java -jar target/cljbot-xxxxx-standalone.jar script/run3
 
 ↑スクリプト`script/run3.edn`を実行。
 
+Windowsで使う場合、うまくアプリを制御できないときは管理者権限のコマンドプロンプトから起動してみると良い。
+
 ## 操作一覧
 
 スクリプトに書ける操作は……
@@ -39,6 +43,12 @@ $ java -jar target/cljbot-xxxxx-standalone.jar script/run3
 - `:type-string` (文字列用)
 - `:type-key` (特殊キー用)
 
+`:type-string`に使える文字は……
+
+- アルファベット
+- 数字
+- 一部の記号
+
 `:type-key`に使えるキーは……
 
 - `:enter`
@@ -48,6 +58,8 @@ $ java -jar target/cljbot-xxxxx-standalone.jar script/run3
 - `:comma`
 - `:space`
 - `:tab`
+
+※使える文字とキーは、漸次拡張中。
 
 ## スクリプト例
 

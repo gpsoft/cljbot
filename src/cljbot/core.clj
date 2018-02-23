@@ -10,11 +10,13 @@
 (.setAutoDelay robot 30)
 
 ;;; 基本操作
-(defn pause [ms]
+(defn pause
+  "`ms`ミリ秒待つ。"
+  [ms]
   (.delay robot ms))
 
 ;;; マウス操作
-(def btn-map
+(def ^:private btn-map
   {:left InputEvent/BUTTON1_MASK
    :middle InputEvent/BUTTON2_MASK
    :right InputEvent/BUTTON3_MASK})
@@ -49,31 +51,23 @@
      pos)))
 
 ;;; キーボード操作
-(def ks-map
-  ;; ksはキーストロークを抽象化したもの。
-  ;; 実態はキーコードのベクタ。
+(def kc-map
+  ;; kcはキーの組み合わせを抽象化したもの(key combo)。
+  ;; 実態はキーイベントコードのベクタ。
   ;; 0以上のmodifier(ShiftとかAltね)と、1つの基本キーからなる。
   ;; ex: [KeyEvent/VK_A]
   ;;     [KeyEvent/VK_SHIFT KeyEvent/VK_B]
   ;;     [KeyEvent/VK_SHIFT KeyEvent/VK_ALT KeyEvent/VK_C]
-  ;; また特別に、:enterや:escのようなキーワード表現も許す。
-  ;; その場合、↓このマップで正規形に変換する。
-  {:enter [KeyEvent/VK_ENTER]
-   :esc [KeyEvent/VK_ESCAPE]
+  ;; キーワードからkcへ変換できる。
+  ;; :spaceのように、単純に変換(VK_SPACE)できるものもあるし、
+  ;; ↓このマップで変換するものもある。
+  {:esc [KeyEvent/VK_ESCAPE]
    :bs [KeyEvent/VK_BACK_SPACE]
-   :colon [KeyEvent/VK_COLON]
    :asterisk [KeyEvent/VK_SHIFT KeyEvent/VK_COLON]
    :ampersand [KeyEvent/VK_SHIFT KeyEvent/VK_6]
-   :comma [KeyEvent/VK_COMMA]
-   :space [KeyEvent/VK_SPACE]
-   :tab [KeyEvent/VK_TAB]
-   :at [KeyEvent/VK_AT]
    :back-quote [KeyEvent/VK_SHIFT KeyEvent/VK_AT]
    :plus [KeyEvent/VK_SHIFT KeyEvent/VK_SEMICOLON]
-   :back-slash [KeyEvent/VK_BACK_SLASH]
-   :bracketleft [KeyEvent/VK_BRACELEFT]
    :braceleft [KeyEvent/VK_SHIFT KeyEvent/VK_BRACELEFT]
-   :bracketright [KeyEvent/VK_BRACERIGHT]
    :braceright [KeyEvent/VK_SHIFT KeyEvent/VK_BRACERIGHT]
    :exclamation-mark [KeyEvent/VK_SHIFT KeyEvent/VK_1]
    })
@@ -95,74 +89,82 @@
    })
 
 (defn- s->keycode [s]
-  (load-string
-    (str "java.awt.event.KeyEvent/VK_" s)))
-(defn- c->keycode [c]
-  (s->keycode (Character/toUpperCase c)))
-;(def ^:private upper-snake
-;  (comp #(clojure.string/replace % "-" "_")
-;        #(.toUpperCase %)))
-;(defn- kw->keycode [kw]
-;  (s->keycode (upper-snake (name kw))))
+  (try
+    (->> s
+         (str "java.awt.event.KeyEvent/VK_")
+         load-string)
+    (catch RuntimeException e nil)))
+(def ^:private c->keycode
+  (comp s->keycode #(Character/toUpperCase %)))
+(def ^:private upper-snake
+  (comp #(clojure.string/replace % "-" "_")
+        #(.toUpperCase %)))
+(def ^:private kw->keycode
+  (comp s->keycode upper-snake name))
 
-(defn- normalize-ks
-  "ksの正規化。キーワード形式のksをベクタへ。"
-  [ks]
-  (get-in ks-map [ks] ks))
-(defn- type-key*
-  "あるksのタイプ(押して離す)をエミュレートするプリミティブ。"
-  [ks]
-  (let [ks (normalize-ks ks)]
-    (doseq [k ks]
-      (.keyPress robot k))
-    (doseq [k (reverse ks)]
-      (.keyRelease robot k))))
+(defn- type-kc
+  "あるkcのタイプ(押して離す)をエミュレートするプリミティブ。"
+  [kc]
+  (doseq [k kc]
+    (.keyPress robot k))
+  (doseq [k (reverse kc)]
+    (.keyRelease robot k)))
 
-(defn- letter->ks [c]
+(defn- kw->kc
+  [kw]
+  (if-let [kc (kc-map kw)]
+    kc
+    (when-let [keycode (kw->keycode kw)]
+      [keycode])))
+(defn- letter->kc [c]
   (let [mods (if (Character/isUpperCase c) [KeyEvent/VK_SHIFT] [])
         k (c->keycode c)]
     (conj mods k)))
-(defn- digit->ks [c]
+(defn- digit->kc [c]
   [(c->keycode c)])
-(defn- spchar->ks [c]
-  (spchar-map c))
+(def ^:private spchar->kc
+  (comp kw->kc spchar-map))
 
-(defn- char->ks
-  "文字をksへ。
+(defn- char->kc
+  "文字をkcへ。
   サポートする文字種には制限あり。
   "
   [c]
-  (let [ks (cond
-             (Character/isLetter c) (letter->ks c)
-             (Character/isDigit c) (digit->ks c)
-             (spchar-map c) (spchar->ks c)
+  (let [kc (cond
+             (Character/isLetter c) (letter->kc c)
+             (Character/isDigit c) (digit->kc c)
+             (spchar-map c) (spchar->kc c)
              :else nil)]
-    (when-not ks
-      (throw (ex-info (str "Unsupported character: " c) {:key c})))
-    ks))
+    (when-not kc
+      (throw (ex-info (str "Unsupported character: " c) {:char c})))
+    kc))
 
-(defn- string->kss
-  "文字列をksのシーケンスへ。"
+(defn- string->kcs
+  "文字列をkcのシーケンスへ。"
   [s]
-  (map char->ks s))
+  (map char->kc s))
 
-(defn- type-kss
-  "複数のksを連続してタイプ(押して離す)する。"
-  [kss]
-  (doseq [ks kss]
-    (type-key* ks)))
+(defn- type-kcs
+  "複数のkcを連続してタイプ(押して離す)する。"
+  [kcs]
+  (doseq [kc kcs]
+    (type-kc kc)))
 
 (defn type-key
-  "`k`に対応するキーをタイプ(押して離す)する。
-  `k`に指定できるのは、:enterや:escなど。"
-  [k]
-  (type-key* k))
+  "`kw`に対応するキーをタイプ(押して離す)する。
+  `kw`に指定できるのは、:enterや:escなど。"
+  [kw]
+  (let [kc (kw->kc kw)]
+    (when-not kc
+      (throw (ex-info (str "Unsupported key " kw) {:key kw})))
+    (type-kc kc)))
 
 (defn type-string
   "文字列をタイプする。"
   [& ss]
-  (let [kss (string->kss (apply str ss))]
-    (type-kss kss)))
+  (let [kcs (string->kcs (apply str ss))]
+    (type-kcs kcs)))
+
 
 ;;; スクリプト操作
 (def ^:dynamic *loop-i* nil)
@@ -180,7 +182,8 @@
       (pp/pprint object))))
 
 (defn- type-string-with-i [& ss]
-  (->> (map #(if (= % :i) *loop-i* %) ss)
+  (->> ss
+       (replace {:i *loop-i*})
        (apply type-string)))
 
 (def opecode-map
@@ -191,31 +194,45 @@
    :move-to #'move-to
    :type-key #'type-key
    :type-string #'type-string-with-i})
+(defn- handler-or-die [opecode]
+  (let [h (opecode-map opecode)]
+    (when-not h
+      (throw (ex-info (str "Unsupported operation: " opecode)
+                      {:opecode opecode})))
+    h))
 
-(defn- load-script [fpath]
-  (clojure.edn/read-string (slurp fpath)))
+(def ^:private load-script
+  (comp clojure.edn/read-string slurp))
 (defn- store-script [fpath ops]
-  (spit fpath (with-out-str (pprint-with-meta ops))))
+  (let [script (with-out-str (pprint-with-meta ops))]
+    (spit fpath script)))
 
 (defn- learn-location [caption]
   (wait-and-locate caption))
 
 (declare loop-operations)
+(defn- rebuild-operation [opecode operands m]
+  (-> (concat [opecode] operands)
+      vec
+      (with-meta m)))
 (defn- play-operation [op]
   (let [[opecode & args] op]
     (case opecode
       :nop op
       :loop (apply loop-operations args) ; args are actually ops
-      (let [m (meta op)             ;; meta info
-            h (opecode opecode-map) ;; handler function
+      (let [m (meta op)                ;; meta info
+            h (handler-or-die opecode) ;; handler
             operands (if (some #{:?} args)
                        (learn-location (:caption m))
                        args)]
         (apply h operands)
-        (with-meta (vec (concat [opecode] operands)) m)))))
+        (rebuild-operation opecode operands m)))))
 
 (defn- play-operations [ops]
-  (vec (doall (map play-operation ops))))
+  (->> ops
+       (map play-operation)
+       doall
+       vec))
 
 (defn- loop-operations [n ops]
   (if-not (pos? n)
@@ -223,10 +240,12 @@
 
     ;; 1周実行して、learnした場合は、そこで終了。
     ;; learn不要だった場合は、残りの周回を実施。
-    (let [first-run (binding [*loop-i* 0] (play-operations ops))]
+    (let [first-run (binding [*loop-i* 0]
+                      (play-operations ops))]
       (when (= first-run ops)
-        (doall (for [i (range 1 n)]
-                 (binding [*loop-i* i] (play-operations first-run)))))
+        (doseq [i (range 1 n)]
+          (binding [*loop-i* i]
+            (play-operations ops))))
       [:loop n first-run])))
 
 (comment
@@ -249,12 +268,11 @@
   (let [[script] args]
     (when (nil? script)
       (show-usage)
-      (System/exit -1)
-      )
+      (System/exit -1))
     (let [ops (load-script (str script ".edn"))
           res (play-operations ops)]
 
       ;; learnした場合は、learn後のスクリプトを出力。
-      (when-not (= ops res)
+      (when-not (= res ops)
         (store-script (str script "-learned.edn") res)))))
 
