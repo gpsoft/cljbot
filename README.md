@@ -2,6 +2,8 @@
 
 ClojureでGUI操作を自動化する。裏方として`java.awt.Robot`を使う。
 
+- [デモ動画(YouTube)](https://youtu.be/Py2ZQ_Uyajw)
+
 ## できること
 
 - マウスクリック
@@ -94,16 +96,16 @@ ednで書く。
  ]
 ```
 
-実行すると……。
+座標の代わりに`:?`を指定したところがミソ。メタデータ`:caption`は任意。ちなみにednは、メタデータを正式にはサポートしてない。でもまぁ、Clojureで扱うなら問題無さそう。
+
+実行すると、`:?`のところで、マウスの移動待ちになる。
 
 ```shell-session
 $ java -jar target/cljbot-xxxxx-standalone.jar script/run3
 Please move mouse for The start button...
 ```
 
-学習後のスクリプトをファイルに保存してくれる。
-
-ちなみにednは、メタデータを正式にはサポートしてないっぽい。でもまぁ、Clojureで扱うなら問題無さそう。
+ここで、マウスを所望の位置へ移動(5秒以内に!)して待てば、マウス位置を学習し、学習後のスクリプトをファイルに保存してくれる。
 
 ### run3-learned.edn
 ```
